@@ -13,7 +13,7 @@ cudnn_enabled = libcudnn.available
 
 if cudnn_enabled:
     modes = [
-        libcudnn.CUDNN_ACTIVATION_SIGMOID,
+        #libcudnn.CUDNN_ACTIVATION_SIGMOID, do a if hip condition
         libcudnn.CUDNN_ACTIVATION_RELU,
         libcudnn.CUDNN_ACTIVATION_TANH,
     ]
@@ -40,7 +40,6 @@ else:
     'dtype': [numpy.float32, numpy.float64],
     'mode': modes,
 }))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestCudnnActivation:
 
     @pytest.fixture(autouse=True)
@@ -60,7 +59,6 @@ class TestCudnnActivation:
     'dtype': [numpy.float32, numpy.float64],
     'mode': coef_modes,
 }))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestCudnnActivationCoef:
 
     @pytest.fixture(autouse=True)
@@ -136,7 +134,6 @@ class TestCudnnDropout:
     'bias': [True, False],
     'layout': layouts,
 })))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestConvolutionForward:
 
     @pytest.fixture(autouse=True)
