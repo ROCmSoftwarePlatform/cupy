@@ -40,7 +40,6 @@ else:
     'dtype': [numpy.float32, numpy.float64],
     'mode': modes,
 }))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestCudnnActivation:
 
     @pytest.fixture(autouse=True)
@@ -60,7 +59,6 @@ class TestCudnnActivation:
     'dtype': [numpy.float32, numpy.float64],
     'mode': coef_modes,
 }))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestCudnnActivationCoef:
 
     @pytest.fixture(autouse=True)
@@ -83,7 +81,6 @@ class TestCudnnActivationCoef:
     'ratio': [0.0, 0.1, 0.2, 0.5],
     'seed': [0, 100]
 }))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestCudnnDropout:
 
     @pytest.fixture(autouse=True)
@@ -136,7 +133,6 @@ class TestCudnnDropout:
     'bias': [True, False],
     'layout': layouts,
 })))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestConvolutionForward:
 
     @pytest.fixture(autouse=True)
@@ -224,7 +220,6 @@ class TestConvolutionForward:
     'auto_tune': [True, False],
     'deterministic': [True, False],
 })))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestConvolutionBackwardFilter:
 
     @pytest.fixture(autouse=True)
@@ -303,7 +298,6 @@ class TestConvolutionBackwardFilter:
     'deterministic': [True, False],
     'bias': [True, False],
 })))
-@pytest.mark.skipif(not cudnn_enabled, reason='cuDNN is not available')
 class TestConvolutionBackwardData:
 
     @pytest.fixture(autouse=True)
