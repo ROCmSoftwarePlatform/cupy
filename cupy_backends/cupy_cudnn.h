@@ -1,9 +1,13 @@
 // This file is a stub header file of cudnn for Read the Docs.
 
+
 #ifndef INCLUDE_GUARD_CUPY_CUDNN_H
 #define INCLUDE_GUARD_CUPY_CUDNN_H
+#if CUPY_USE_HIP
 
-#ifndef CUPY_NO_CUDA
+#include "miopen/miopen.h"
+
+#elif !defined(CUPY_NO_CUDA)
 
 #include <cudnn.h>
 
@@ -12,21 +16,15 @@
 #include "stub/cupy_cuda_common.h"
 #include "stub/cupy_cudnn.h"
 
-#else
-
-#include "hip/cupy_hip_common.h"
-#include "stub/cupy_cudnn.h"
 
 #endif // #ifdef CUPY_NO_CUDA
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // Definitions are for compatibility with cuDNN v5 and v6.
 ///////////////////////////////////////////////////////////////////////////////
 
 extern "C" {
 
-#if defined(CUPY_NO_CUDA) || (CUDNN_VERSION < 6000)
+#if !defined(CUPY_NO_CUDA) && (CUDNN_VERSION < 6000)
 
 typedef enum {} cudnnRNNAlgo_t;
 typedef enum {} cudnnReduceTensorOp_t;

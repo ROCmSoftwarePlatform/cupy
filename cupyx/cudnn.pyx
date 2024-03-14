@@ -15,12 +15,17 @@ from cupy._core.core cimport _ndarray_base
 from cupy._core cimport internal
 from cupy.cuda cimport device
 from cupy.cuda cimport memory as _memory
-from cupy_backends.cuda.libs cimport cudnn
+IF CUPY_HIP_VERSION != 0:
+    from cupy_backends.cuda.libs import miopen as cudnn
+    from cupy_backends.cuda.libs.cudnn import *
+ELSE:
+    from cupy_backends.cuda.libs cimport cudnn
 
 from cupy._core._ufuncs import elementwise_copy as _elementwise_copy
 from cupy import _util
 
 from cupy.cuda import cudnn as _py_cudnn
+from cupy_backends.cuda.libs import cudnn as _cudnn
 
 
 cdef int _cudnn_version = -1
@@ -109,11 +114,11 @@ cdef class Descriptor:
 cpdef int get_data_type(dtype) except? -1:
     cdef char t = ord(dtype.char)
     if t == b'f':
-        return cudnn.CUDNN_DATA_FLOAT
+        return _cudnn.CUDNN_DATA_FLOAT
     elif t == b'd':
-        return cudnn.CUDNN_DATA_DOUBLE
+        return _cudnn.CUDNN_DATA_DOUBLE
     elif t == b'e':
-        return cudnn.CUDNN_DATA_HALF
+        return _cudnn.CUDNN_DATA_HALF
     else:
         raise TypeError('Dtype {} is not supported in cuDNN'.format(dtype))
 
@@ -153,9 +158,7 @@ cpdef _create_tensor_nd_descriptor(
         desc, data_type, arr._shape.size(), <size_t>c_shape.data(),
         <size_t>c_strides.data())
 
-
-cpdef _create_tensor_descriptor(size_t desc, _ndarray_base arr,
-                                int format=cudnn.CUDNN_TENSOR_NCHW):
+cpdef _create_tensor_descriptor(size_t desc, _ndarray_base arr,int format=cudnn.miopenTensorNCHW):
     if not arr._c_contiguous:
         raise ValueError('cupyx.cudnn supports c-contiguous arrays only')
     if arr._shape.size() == 4:
@@ -180,12 +183,12 @@ cpdef _create_tensor_descriptor_as4darray(size_t desc,
     if arr._shape.size() > 0:
         dim1 = arr._shape[0]
     dim2 = arr.size // dim1
-    cudnn.setTensor4dDescriptor(desc, cudnn.CUDNN_TENSOR_NCHW, data_type,
+    cudnn.setTensor4dDescriptor(desc, _cudnn.CUDNN_TENSOR_NCHW, data_type,
                                 dim1, dim2, 1, 1)
 
 
 cpdef _create_filter_descriptor(
-        size_t desc, _ndarray_base arr, int format=cudnn.CUDNN_TENSOR_NCHW):
+        size_t desc, _ndarray_base arr, int format=_cudnn.CUDNN_TENSOR_NCHW):
     cdef vector.vector[int] c_shape
     cdef Py_ssize_t s, ndim = arr._shape.size()
     data_type = get_data_type(arr.dtype)
@@ -268,7 +271,7 @@ cpdef _ndarray_base _ascontiguousarray_normalized_strides(_ndarray_base a):
     return newarray
 
 
-def create_tensor_descriptor(arr, format=cudnn.CUDNN_TENSOR_NCHW):
+def create_tensor_descriptor(arr, format=_cudnn.CUDNN_TENSOR_NCHW):
     desc = Descriptor(cudnn.createTensorDescriptor(),
                       _py_cudnn.destroyTensorDescriptor)
     _create_tensor_descriptor(desc.value, arr, format)
@@ -306,7 +309,7 @@ def create_tensor_nd_descriptor(_ndarray_base arr):
     return desc
 
 
-def create_filter_descriptor(arr, format=cudnn.CUDNN_TENSOR_NCHW):
+def create_filter_descriptor(arr, format=_cudnn.CUDNN_TENSOR_NCHW):
     desc = Descriptor(cudnn.createFilterDescriptor(),
                       _py_cudnn.destroyFilterDescriptor)
     _create_filter_descriptor(desc.value, arr, format)
@@ -314,7 +317,7 @@ def create_filter_descriptor(arr, format=cudnn.CUDNN_TENSOR_NCHW):
 
 
 def create_convolution_descriptor(pad, stride, dtype,
-                                  mode=cudnn.CUDNN_CROSS_CORRELATION,
+                                  mode=_cudnn.CUDNN_CROSS_CORRELATION,
                                   dilation=None,
                                   use_tensor_core=False,
                                   groups=1):
@@ -616,7 +619,7 @@ def rnn_backward_weights_ex(
     return dw
 
 
-def create_activation_descriptor(mode, nan_prop_mode=cudnn.CUDNN_PROPAGATE_NAN,
+def create_activation_descriptor(mode, nan_prop_mode=_cudnn.CUDNN_PROPAGATE_NAN,
                                  coef=0.0):
     desc = Descriptor(cudnn.createActivationDescriptor(),
                       _py_cudnn.destroyActivationDescriptor)
@@ -645,7 +648,7 @@ def activation_forward(_ndarray_base x, int mode, double coef=0.0):
     try:
         _create_tensor_descriptor_as4darray(desc, x)
         cudnn.setActivationDescriptor(
-            act_desc, mode, cudnn.CUDNN_NOT_PROPAGATE_NAN, coef)
+            act_desc, mode, _cudnn.CUDNN_NOT_PROPAGATE_NAN, coef)
         cudnn.activationForward_v4(
             handle, act_desc, one, desc, x.data.ptr,
             zero, desc, y.data.ptr)
@@ -773,13 +776,13 @@ def create_dropout_descriptor(
     desc = Descriptor(cudnn.createDropoutDescriptor(),
                       _py_cudnn.destroyDropoutDescriptor)
     cudnn.setDropoutDescriptor(desc.value, handle, dropout,
-                               states, state_size_in_bytes, seed)
+                               states, state_size_in_bytes, seed, False, False, 0)
     return desc
 
 
 def set_dropout_descriptor(desc, handle, dropout):
     # When the fourth argument is NULL, random state is not updated.
-    cudnn.setDropoutDescriptor(desc.value, handle, dropout, 0, 0, 0)
+    cudnn.setDropoutDescriptor(desc.value, handle, dropout, 0, 0, 0, False, False, 0)
 
 
 def _create_ctc_loss_descriptor(data_type):
@@ -1356,7 +1359,7 @@ cpdef _warn_algorithm_fwd(
         .format(x.shape, W.shape, y.shape, conv_param[0], conv_param[1]),
         _util.PerformanceWarning)
 
-
+"""
 cpdef _Algorithm _find_algorithm_fwd(
         _ndarray_base x, _ndarray_base W, _ndarray_base y, tuple conv_param,
         size_t handle, size_t x_desc, size_t filter_desc, size_t conv_desc,
@@ -1638,7 +1641,6 @@ cpdef _Algorithm _get_algorithm_bwd_data(
         algo = _Algorithm(algo_no, workspace_size)
     _get_algorithm_bwd_data_cache[key] = algo
     return algo
-
 
 cpdef bint _should_use_tensor_core(
         tensor_core_mode, object dtype) except *:
@@ -1970,7 +1972,7 @@ def convolution_backward_data(
         cudnn.destroyFilterDescriptor(filter_desc)
         cudnn.destroyConvolutionDescriptor(conv_desc)
 
-
+"""
 def pooling_forward(
         _ndarray_base x, _ndarray_base y,
         tuple ksize, tuple stride, tuple pad, int mode):
@@ -2044,7 +2046,7 @@ def pooling_backward(
 
 cdef _create_tensor_descriptor_for_bn(
         size_t desc, _ndarray_base arr, bint is_for_conv2d,
-        int format=cudnn.CUDNN_TENSOR_NCHW):
+        int format=_cudnn.CUDNN_TENSOR_NCHW):
     assert arr._c_contiguous
     if is_for_conv2d:
         _create_tensor_descriptor(desc, arr, format)
@@ -2077,7 +2079,7 @@ def batch_normalization_forward_training(
         _ndarray_base running_mean, _ndarray_base running_var,
         mean, inv_std, double eps, double decay,
         bint is_for_conv2d, int cudnn_mode, bint debug,
-        int d_layout=cudnn.CUDNN_TENSOR_NCHW):
+        int d_layout=_cudnn.CUDNN_TENSOR_NCHW):
 
     reserve_space, y, save_mean, save_inv_std = (
         _batch_normalization_forward_training(
@@ -2106,7 +2108,7 @@ def batch_normalization_forward_training_ex(
         _ndarray_base running_mean, _ndarray_base running_var,
         mean, inv_std, double eps, double decay,
         bint is_for_conv2d, int cudnn_mode, bint debug,
-        int d_layout=cudnn.CUDNN_TENSOR_NCHW):
+        int d_layout=_cudnn.CUDNN_TENSOR_NCHW):
 
     reserve_space, y, save_mean, save_inv_std = (
         _batch_normalization_forward_training(
@@ -2129,7 +2131,7 @@ cdef _batch_normalization_forward_training(
         _ndarray_base running_mean, _ndarray_base running_var,
         mean, inv_std, double eps, double decay,
         bint is_for_conv2d, int cudnn_mode, bint debug,
-        int d_layout=cudnn.CUDNN_TENSOR_NCHW):
+        int d_layout=_cudnn.CUDNN_TENSOR_NCHW):
 
     cdef _memory.MemoryPointer workspace = None
     cdef _memory.MemoryPointer reserve_space = None
@@ -2282,7 +2284,7 @@ def batch_normalization_forward_inference(
         _ndarray_base x, _ndarray_base gamma, _ndarray_base beta,
         _ndarray_base mean, _ndarray_base var,
         double eps, bint is_for_conv2d, int cudnn_mode,
-        int d_layout=cudnn.CUDNN_TENSOR_NCHW):
+        int d_layout=_cudnn.CUDNN_TENSOR_NCHW):
     x = core._internal_ascontiguousarray(x)
     dtype = x.dtype
     y = _core.ndarray(x._shape, dtype)
@@ -2327,7 +2329,7 @@ def batch_normalization_backward(
         _ndarray_base x, _ndarray_base gamma, _ndarray_base gy,
         _ndarray_base mean, _ndarray_base inv_std,
         double eps, bint is_for_conv2d, int cudnn_mode, bint debug,
-        int d_layout=cudnn.CUDNN_TENSOR_NCHW,
+        int d_layout=_cudnn.CUDNN_TENSOR_NCHW,
         *,
         _memory.MemoryPointer reserve_space=None,
 ):
@@ -2440,7 +2442,7 @@ def batch_normalization_backward(
     return gx, ggamma, gbeta
 
 
-def create_activation_descriptor(mode, relu_nan_opt=cudnn.CUDNN_PROPAGATE_NAN,
+def create_activation_descriptor(mode, relu_nan_opt=_cudnn.CUDNN_PROPAGATE_NAN,
                                  coef=0.0):
     desc = Descriptor(cudnn.createActivationDescriptor(),
                       _py_cudnn.destroyActivationDescriptor)
