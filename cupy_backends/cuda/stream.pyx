@@ -81,12 +81,12 @@ cpdef intptr_t get_default_stream_ptr():
     """
     if is_ptds_enabled():
         return runtime.streamPerThread
-    else:  # we don't return 0 here
-        return runtime.streamLegacy
+    else:  # we don't return 0 here for CUDA
+        return runtime.streamDefault if  runtime._is_hip_environment else runtime.streamLegacy
 
 
 cdef bint is_ptds_enabled():
-    if runtime._is_hip_environment:
-        # HIP does not support PTDS, just ignore the env var
-        return False
+    #if runtime._is_hip_environment:
+    #    # HIP does not support PTDS, just ignore the env var
+    #    return False
     return _ptds

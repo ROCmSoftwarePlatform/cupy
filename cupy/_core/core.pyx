@@ -249,8 +249,8 @@ cdef class _ndarray_base:
 
         if ver == 3:
             stream_ptr = stream_module.get_current_stream_ptr()
-            # CAI v3 says setting the stream field to 0 is disallowed
-            if stream_ptr == 0:
+            # CAI v3 says setting the stream field to 0 is disallowed for CUDA
+            if stream_ptr == 0 and not runtime._is_hip_environment:
                 stream_ptr = _stream_module.get_default_stream_ptr()
             desc['stream'] = stream_ptr
         elif ver == 2:
@@ -1675,6 +1675,8 @@ cdef class _ndarray_base:
                 # `_kernel._preprocess_args`.
                 check = (hasattr(x, '__cuda_array_interface__')
                          or hasattr(x, '__cupy_get_ndarray__'))
+                if runtime._is_hip_environment and isinstance(x, ndarray):
+                    check = True
                 if (not check
                         and not type(x) in _scalar.scalar_type_set
                         and not isinstance(x, numpy.ndarray)):
@@ -2760,7 +2762,7 @@ cpdef _ndarray_base _convert_object_with_cuda_array_interface(a):
     stream_ptr = desc.get('stream')
     if stream_ptr is not None:
         if _util.CUDA_ARRAY_INTERFACE_SYNC:
-            runtime.streamSynchronize(stream_ptr)
+                runtime.streamSynchronize(stream_ptr)
     return ndarray(shape, dtype, memptr, strides)
 
 

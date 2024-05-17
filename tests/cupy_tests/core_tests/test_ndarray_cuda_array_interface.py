@@ -1,8 +1,8 @@
 import unittest
+import pytest
 
 from cupy_backends.cuda import stream as stream_module
 import cupy
-import cupy_backends
 from cupy import _core
 from cupy import testing
 
@@ -28,11 +28,9 @@ class DummyObjectWithCudaArrayInterface(object):
         }
         if self.ver == 3:
             stream = cupy.cuda.get_current_stream()
-            # Only non-default streams use their actual ptr values. (ROCm)
-            if cupy_backends.cuda.api.runtime.is_hip:
-                desc['stream'] = stream.ptr
-            else:
-                desc['stream'] = 1 if stream.ptr == 0 else stream.ptr  # noqa: F821, E501
+            if not cupy.cuda.runtime.is_hip:
+                desc['stream'] = 1 if stream.ptr == 0 else stream.ptr
+
         return desc
 
 
@@ -113,7 +111,7 @@ class TestSimpleReductionFunction(unittest.TestCase):
 
     def setUp(self):
         if self.stream == 'null':
-            self.stream = cupy.cuda.Stream.null
+            self.stream = cupy.cuda.Stream()
         elif self.stream == 'new':
             self.stream = cupy.cuda.Stream()
 
