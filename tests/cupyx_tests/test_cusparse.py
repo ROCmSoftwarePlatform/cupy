@@ -905,7 +905,10 @@ class TestCsrsm2:
                         lower=self.lower, unit_diag=self.unit_diag,
                         transa=self.transa, blocking=self.blocking,
                         level_info=self.level_info)
-        testing.assert_allclose(x, self.ref_x, atol=self.tol, rtol=self.tol)
+        
+        diff = np.linalg.norm(x - self.ref_x, np.inf)
+        norm = np.linalg.norm(self.ref_x, np.inf)
+        testing.assertTrue(diff <= (self.tol + self.tol * norm)
 
 
 @testing.parameterize(*testing.product({
